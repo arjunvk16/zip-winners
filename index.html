@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multiplayer Scoreboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .card {
+            background-color: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            padding: 1.5rem;
+            transition: background-color 0.3s, border-color 0.3s;
+        }
+        .dark .card {
+            background-color: #1F2937; /* gray-800 */
+            border: 1px solid #374151; /* gray-700 */
+        }
+        .input-field {
+            width: 100%;
+            padding: 0.5rem 0.75rem;
+            border: 1px solid #D1D5DB; /* gray-300 */
+            border-radius: 0.375rem;
+            text-align: center;
+            transition: background-color 0.3s, border-color 0.3s, color 0.3s;
+        }
+        .dark .input-field {
+            background-color: #374151; /* gray-700 */
+            border-color: #4B5563; /* gray-600 */
+            color: #F9FAFB; /* gray-50 */
+        }
+        .input-field:disabled {
+            background-color: #F3F4F6; /* gray-100 */
+            cursor: not-allowed;
+        }
+        .dark .input-field:disabled {
+            background-color: #4B5563; /* gray-600 */
+        }
+        .winner-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-weight: 600;
+            font-size: 0.875rem;
+        }
+        .winner-pending { background-color: #F3F4F6; color: #4B5563; }
+        .dark .winner-pending { background-color: #374151; color: #D1D5DB; }
+        .btn-save {
+            background-color: #4F46E5;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            font-weight: 500;
+        }
+        .btn-save:disabled {
+            background-color: #A5B4FC;
+            cursor: not-allowed;
+        }
+    </style>
+    <script>
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+          document.documentElement.classList.add('dark')
+        } else {
+          document.documentElement.classList.remove('dark')
+        }
+    </script>
+</head>
+<body class="bg-gray-50 text-gray-800 dark:bg-gray-900 dark:text-gray-200">
+
+    <div class="container mx-auto p-4 md:p-8 max-w-5xl">
+        
+        <header class="text-center mb-8 relative">
+            <h1 class="text-4xl font-bold text-gray-900 dark:text-white">Multiplayer Scoreboard</h1>
+            <p class="text-gray-600 dark:text-gray-400 mt-2">Enter daily times to find the weekly champion!</p>
+             <button id="theme-toggle" class="absolute top-0 right-0 p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none">
+                <svg id="theme-toggle-dark-icon" class="w-6 h-6 hidden" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path></svg>
+                <svg id="theme-toggle-light-icon" class="w-6 h-6 hidden" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" fill-rule="evenodd" clip-rule="evenodd"></path></svg>
+            </button>
+        </header>
+
+        <div id="loading" class="text-center text-gray-500">Loading scoreboard...</div>
+
+        <div id="app-content" class="hidden space-y-8">
+            <!-- Input Card -->
+            <div class="card">
+                <h2 class="text-2xl font-semibold mb-4 text-gray-800 dark:text-gray-100">Enter Today's Times</h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead class="bg-gray-50 dark:bg-gray-700">
+                            <tr>
+                                <th class="p-3 font-semibold text-sm text-gray-600 dark:text-gray-300">Player</th>
+                                <th class="p-3 font-semibold text-sm text-gray-600 dark:text-gray-300">Time (Mins:Secs)</th>
+                                <th class="p-3 font-semibold text-sm text-gray-600 dark:text-gray-300">Action</th>
+                                <th class="p-3 font-semibold text-sm text-gray-600 dark:text-gray-300">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="player-inputs-body" class="divide-y divide-gray-200 dark:divide-gray-700">
+                            <!-- Player rows will be generated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div class="card text-center">
+                    <h3 class="text-xl font-semibold mb-3 text-gray-800 dark:text-gray-100">Today's Winner</h3>
+                    <div id="daily-winner" class="winner-badge winner-pending text-lg">Pending...</div>
+                </div>
+                <div class="card lg:col-span-2">
+                    <h3 class="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-100">Weekly Standings</h3>
+                    <div id="weekly-standings" class="space-y-2">
+                        <!-- Standings will be generated by JS -->
+                        <p class="text-gray-500 dark:text-gray-400">No scores yet this week.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, onSnapshot, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- THEME TOGGLE LOGIC ---
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        const themeToggleDarkIcon = document.getElementById('theme-toggle-dark-icon');
+        const themeToggleLightIcon = document.getElementById('theme-toggle-light-icon');
+
+        if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            themeToggleLightIcon.classList.remove('hidden');
+        } else {
+            themeToggleDarkIcon.classList.remove('hidden');
+        }
+
+        themeToggleBtn.addEventListener('click', function() {
+            themeToggleDarkIcon.classList.toggle('hidden');
+            themeToggleLightIcon.classList.toggle('hidden');
+            document.documentElement.classList.toggle('dark');
+            if (document.documentElement.classList.contains('dark')) {
+                localStorage.setItem('theme', 'dark');
+            } else {
+                localStorage.setItem('theme', 'light');
+            }
+        });
+
+        // --- FIREBASE AND APP LOGIC ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyAJ9K9fQ0ThMB7aXB6qNHr3_yLUdqJgnCM",
+            authDomain: "my-chain-reaction-game.firebaseapp.com",
+            projectId: "my-chain-reaction-game",
+            storageBucket: "my-chain-reaction-game.appspot.com",
+            messagingSenderId: "32751418407",
+            appId: "1:32751418407:web:ff8244007ef2b099d56202",
+            measurementId: "G-D6ZRG8LK2H"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // Using a new collection for this scoreboard
+        const scoresCollection = collection(db, "multiplayer-zip-game-scores");
+        const players = ['Alvin', 'Shany', 'Vismaya', 'Gokul', 'Adarsh', 'Arjun', 'Abhishek'];
+        const playerColors = {
+            'Alvin': 'bg-red-100 text-red-800', 'Shany': 'bg-yellow-100 text-yellow-800',
+            'Vismaya': 'bg-green-100 text-green-800', 'Gokul': 'bg-blue-100 text-blue-800',
+            'Adarsh': 'bg-indigo-100 text-indigo-800', 'Arjun': 'bg-purple-100 text-purple-800',
+            'Abhishek': 'bg-pink-100 text-pink-800'
+        };
+
+        const loadingDiv = document.getElementById('loading');
+        const appContentDiv = document.getElementById('app-content');
+        const playerInputsBody = document.getElementById('player-inputs-body');
+        const dailyWinnerDiv = document.getElementById('daily-winner');
+        const weeklyStandingsDiv = document.getElementById('weekly-standings');
+
+        function getDateString(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        function createPlayerInputRows() {
+            players.forEach(player => {
+                const row = document.createElement('tr');
+                row.id = `row-${player}`;
+                row.innerHTML = `
+                    <td class="p-3 font-bold text-gray-700 dark:text-gray-200">${player}</td>
+                    <td class="p-3">
+                        <div class="flex items-center gap-2">
+                            <input type="number" id="mins-${player}" placeholder="Mins" class="input-field w-20" min="0">
+                            <span>:</span>
+                            <input type="number" id="secs-${player}" placeholder="Secs" class="input-field w-20" min="0" max="59">
+                        </div>
+                    </td>
+                    <td class="p-3">
+                        <button id="btn-${player}" class="btn-save">Save</button>
+                    </td>
+                    <td class="p-3">
+                        <span id="status-${player}" class="text-sm text-gray-500">Waiting...</span>
+                    </td>
+                `;
+                playerInputsBody.appendChild(row);
+
+                document.getElementById(`btn-${player}`).addEventListener('click', () => savePlayerTime(player));
+            });
+        }
+
+        async function savePlayerTime(player) {
+            const minsInput = document.getElementById(`mins-${player}`);
+            const secsInput = document.getElementById(`secs-${player}`);
+            const statusEl = document.getElementById(`status-${player}`);
+
+            const mins = parseInt(minsInput.value) || 0;
+            const secs = parseInt(secsInput.value) || 0;
+
+            if ((mins === 0 && secs === 0) || secs > 59) {
+                statusEl.textContent = 'Invalid time';
+                statusEl.className = 'text-sm text-red-500';
+                return;
+            }
+
+            const todayString = getDateString(new Date());
+            const docRef = doc(scoresCollection, todayString);
+
+            const timeData = { mins, secs };
+            const dataToSave = {
+                scores: { [player]: timeData }
+            };
+
+            try {
+                await setDoc(docRef, dataToSave, { merge: true });
+                statusEl.textContent = 'Saved!';
+                statusEl.className = 'text-sm text-green-500';
+
+                // Check for daily winner
+                const updatedDoc = await getDoc(docRef);
+                if (updatedDoc.exists()) {
+                    const scores = updatedDoc.data().scores;
+                    if (Object.keys(scores).length === players.length) {
+                        calculateAndSetWinner(todayString, scores);
+                    }
+                }
+            } catch (error) {
+                console.error(`Error saving ${player}'s time:`, error);
+                statusEl.textContent = 'Error!';
+                statusEl.className = 'text-sm text-red-500';
+            }
+        }
+
+        async function calculateAndSetWinner(docId, scores) {
+            let winner = null;
+            let bestTime = Infinity;
+
+            for (const player in scores) {
+                const time = scores[player].mins * 60 + scores[player].secs;
+                if (time < bestTime) {
+                    bestTime = time;
+                    winner = player;
+                }
+            }
+            await setDoc(doc(scoresCollection, docId), { winner: winner }, { merge: true });
+        }
+
+        function listenForDailyScores() {
+            const todayString = getDateString(new Date());
+            const docRef = doc(scoresCollection, todayString);
+
+            onSnapshot(docRef, (docSnap) => {
+                if (!docSnap.exists()) {
+                    loadingDiv.style.display = 'none';
+                    appContentDiv.classList.remove('hidden');
+                    return;
+                }
+
+                const data = docSnap.data();
+                const scores = data.scores || {};
+
+                // Update input fields and statuses
+                players.forEach(player => {
+                    const minsInput = document.getElementById(`mins-${player}`);
+                    const secsInput = document.getElementById(`secs-${player}`);
+                    const btn = document.getElementById(`btn-${player}`);
+                    const statusEl = document.getElementById(`status-${player}`);
+
+                    if (scores[player]) {
+                        minsInput.value = scores[player].mins;
+                        secsInput.value = scores[player].secs;
+                        minsInput.disabled = true;
+                        secsInput.disabled = true;
+                        btn.disabled = true;
+                        statusEl.textContent = 'Locked';
+                        statusEl.className = 'text-sm text-blue-500';
+                    }
+                });
+
+                // Update daily winner
+                if (data.winner) {
+                    dailyWinnerDiv.textContent = data.winner;
+                    dailyWinnerDiv.className = `winner-badge text-lg ${playerColors[data.winner] || 'bg-gray-200'}`;
+                } else {
+                    dailyWinnerDiv.textContent = 'Pending...';
+                    dailyWinnerDiv.className = 'winner-badge winner-pending text-lg';
+                }
+
+                loadingDiv.style.display = 'none';
+                appContentDiv.classList.remove('hidden');
+            });
+        }
+        
+        // This is a simplified weekly calculation. For a real app, you'd query the whole week.
+        // For this example, we'll just show a placeholder.
+        function updateWeeklyStandings() {
+            // In a full implementation, you would query all documents for the current week.
+            // This is a placeholder to show the concept.
+            weeklyStandingsDiv.innerHTML = `
+                <p class="text-gray-500 dark:text-gray-400">
+                    Weekly standings calculation would be shown here based on all scores from this week.
+                </p>
+            `;
+        }
+
+        signInAnonymously(auth)
+            .then(() => {
+                console.log("Signed in anonymously.");
+                createPlayerInputRows();
+                listenForDailyScores();
+                updateWeeklyStandings();
+            })
+            .catch((error) => {
+                console.error("Anonymous sign-in failed: ", error);
+                loadingDiv.textContent = "Authentication failed. Cannot load scoreboard.";
+            });
+
+    </script>
+</body>
+</html>
