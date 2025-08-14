@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Multiplayer Scoreboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body {
@@ -74,6 +75,30 @@
         .dark .avatar {
             border-color: #1F2937; /* dark:border-gray-800 */
         }
+        .filter-btn {
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            font-weight: 500;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+        .filter-btn.active {
+            background-color: #4F46E5; /* indigo-600 */
+            color: white;
+        }
+        .filter-btn:not(.active) {
+            background-color: #E5E7EB; /* gray-200 */
+        }
+        .dark .filter-btn:not(.active) {
+            background-color: #374151; /* gray-700 */
+            color: #D1D5DB; /* gray-300 */
+        }
+        .dark input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+        }
+        .history-details {
+            transition: all 0.3s ease-in-out;
+        }
     </style>
     <script>
         if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -125,10 +150,56 @@
                     <div id="daily-winner" class="winner-badge winner-pending">Pending...</div>
                 </div>
                 <div class="card lg:col-span-2">
-                    <h3 class="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-100">Weekly Leaderboard</h3>
+                    <h3 class="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-100">Weekly Leaderboard (By Wins)</h3>
                     <div id="weekly-standings" class="space-y-3">
                         <p class="text-gray-500 dark:text-gray-400">No scores yet this week.</p>
                     </div>
+                </div>
+            </div>
+            
+            <!-- Weekly Time Battle Card -->
+            <div class="card">
+                <h2 class="text-2xl font-semibold text-gray-800 dark:text-gray-100 mb-4">Weekly Time Battle</h2>
+                <div id="weekly-time-battle-content" class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                </div>
+                 <div class="mt-6 text-center">
+                    <p id="weekly-time-winner" class="text-2xl font-bold text-indigo-600 dark:text-indigo-400">Calculating...</p>
+                </div>
+            </div>
+
+            <!-- Performance Graph Card -->
+            <div class="card">
+                <h2 class="text-2xl font-semibold text-gray-800 dark:text-gray-100 mb-4">Weekly Performance Graph</h2>
+                <div>
+                    <canvas id="performanceChart"></canvas>
+                </div>
+            </div>
+
+             <!-- History Section -->
+            <div class="card">
+                <h2 class="text-2xl font-semibold text-gray-800 dark:text-gray-100 mb-4">Game History & Calendar</h2>
+                <div class="flex flex-wrap gap-4 items-center mb-6">
+                    <div id="filter-controls" class="flex gap-2">
+                        <button class="filter-btn active" data-filter="week">This Week</button>
+                        <button class="filter-btn" data-filter="month">This Month</button>
+                        <button class="filter-btn" data-filter="year">This Year</button>
+                    </div>
+                    <input type="date" id="date-filter" class="input-field p-2 w-auto">
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead class="bg-gray-50 dark:bg-gray-700">
+                            <tr>
+                                <th class="p-3 font-semibold text-sm text-gray-600 dark:text-gray-300">Date</th>
+                                <th class="p-3 font-semibold text-sm text-gray-600 dark:text-gray-300">Winner</th>
+                                <th class="p-3 font-semibold text-sm text-gray-600 dark:text-gray-300">Winning Time</th>
+                                <th class="p-3 font-semibold text-sm text-gray-600 dark:text-gray-300">Players</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-table-body" class="divide-y divide-gray-200 dark:divide-gray-700">
+                        </tbody>
+                    </table>
+                     <p id="history-no-results" class="text-center text-gray-500 dark:text-gray-400 p-4 hidden">No records found for this period.</p>
                 </div>
             </div>
         </div>
@@ -179,20 +250,28 @@
         const scoresCollection = collection(db, "multiplayer-zip-game-scores");
         
         const players = [
-            { name: 'Alvin', color: 'bg-red-100 text-red-800', avatar: 'https://avatar.iran.liara.run/public/boy?username=Alvin' },
-            { name: 'Shany', color: 'bg-pink-100 text-pink-800', avatar: 'https://avatar.iran.liara.run/public/girl?username=Shany' },
-            { name: 'Vismaya', color: 'bg-purple-100 text-purple-800', avatar: 'https://avatar.iran.liara.run/public/girl?username=Vismaya' },
-            { name: 'Gokul', color: 'bg-blue-100 text-blue-800', avatar: 'https://avatar.iran.liara.run/public/boy?username=Gokul' },
-            { name: 'Adarsh', color: 'bg-indigo-100 text-indigo-800', avatar: 'https://avatar.iran.liara.run/public/boy?username=Adarsh' },
-            { name: 'Arjun', color: 'bg-green-100 text-green-800', avatar: 'https://avatar.iran.liara.run/public/boy?username=Arjun' },
-            { name: 'Abhishek', color: 'bg-yellow-100 text-yellow-800', avatar: 'https://avatar.iran.liara.run/public/boy?username=Abhishek' }
-        ];
+            { name: 'Alvin', color: 'bg-red-100 text-red-800', hex: '#EF4444' },
+            { name: 'Shany', color: 'bg-pink-100 text-pink-800', hex: '#EC4899' },
+            { name: 'Vismaya', color: 'bg-purple-100 text-purple-800', hex: '#8B5CF6' },
+            { name: 'Gokul', color: 'bg-blue-100 text-blue-800', hex: '#3B82F6' },
+            { name: 'Adarsh', color: 'bg-indigo-100 text-indigo-800', hex: '#6366F1' },
+            { name: 'Arjun', color: 'bg-green-100 text-green-800', hex: '#10B981' },
+            { name: 'Abhishek', color: 'bg-yellow-100 text-yellow-800', hex: '#F59E0B' }
+        ].map(p => ({...p, avatar: `https://avatar.iran.liara.run/public/${['Shany', 'Vismaya'].includes(p.name) ? 'girl' : 'boy'}?username=${p.name}`}));
 
         const loadingDiv = document.getElementById('loading');
         const appContentDiv = document.getElementById('app-content');
         const playerInputsBody = document.getElementById('player-inputs-body');
         const dailyWinnerDiv = document.getElementById('daily-winner');
         const weeklyStandingsDiv = document.getElementById('weekly-standings');
+        const weeklyTimeBattleContent = document.getElementById('weekly-time-battle-content');
+        const weeklyTimeWinnerEl = document.getElementById('weekly-time-winner');
+        const chartCanvas = document.getElementById('performanceChart');
+        let performanceChart;
+        const filterControls = document.getElementById('filter-controls');
+        const dateFilterInput = document.getElementById('date-filter');
+        const historyTableBody = document.getElementById('history-table-body');
+        const historyNoResults = document.getElementById('history-no-results');
 
         function getDateString(date) {
             const year = date.getFullYear();
@@ -208,6 +287,18 @@
             const startOfWeek = new Date(d.setDate(diff));
             startOfWeek.setHours(0, 0, 0, 0);
             return startOfWeek;
+        }
+
+        function formatTime(totalSeconds) {
+            if (isNaN(totalSeconds) || totalSeconds < 0) return '00:00';
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+
+            if (hours > 0) {
+                return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            }
+            return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
         }
 
         function createPlayerInputRows() {
@@ -299,6 +390,61 @@
             }
         }
 
+        function renderPerformanceChart(weeklyData) {
+            if (performanceChart) {
+                performanceChart.destroy();
+            }
+
+            const isDarkMode = document.documentElement.classList.contains('dark');
+            const gridColor = isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+            const textColor = isDarkMode ? '#E5E7EB' : '#374151';
+
+            const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+            const datasets = players.map(player => {
+                const data = labels.map(day => {
+                    const dayData = weeklyData.find(d => d.day === day);
+                    if (dayData && dayData.scores && dayData.scores[player.name]) {
+                        return dayData.scores[player.name].mins * 60 + dayData.scores[player.name].secs;
+                    }
+                    return null;
+                });
+
+                return {
+                    label: player.name,
+                    data: data,
+                    borderColor: player.hex,
+                    backgroundColor: `${player.hex}33`,
+                    fill: false,
+                    tension: 0.3,
+                };
+            });
+
+            performanceChart = new Chart(chartCanvas, {
+                type: 'line',
+                data: { labels, datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { color: textColor, callback: (value) => formatTime(value) },
+                            grid: { color: gridColor }
+                        },
+                        x: { ticks: { color: textColor }, grid: { color: gridColor } }
+                    },
+                    plugins: {
+                        legend: { labels: { color: textColor } },
+                        tooltip: {
+                            callbacks: {
+                                label: (context) => `${context.dataset.label}: ${formatTime(context.parsed.y)}`
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
         function listenForWeeklyScores() {
             const startOfWeek = getStartOfWeek(new Date());
             const endOfWeek = new Date(startOfWeek);
@@ -308,28 +454,54 @@
 
             onSnapshot(q, (querySnapshot) => {
                 const weeklyWins = {};
+                const weeklyTotalTimes = {};
                 let fastestTime = { player: null, time: Infinity };
                 
-                players.forEach(p => { weeklyWins[p.name] = 0; });
+                players.forEach(p => { 
+                    weeklyWins[p.name] = 0;
+                    weeklyTotalTimes[p.name] = 0;
+                });
+                
+                const weeklyChartData = [];
+                const daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
                 querySnapshot.forEach(doc => {
                     const data = doc.data();
+                    const dayIndex = (data.createdAt.toDate().getDay() + 6) % 7;
+                    weeklyChartData.push({ day: daysOfWeek[dayIndex], scores: data.scores });
+
                     if (data.winner) {
                         weeklyWins[data.winner] = (weeklyWins[data.winner] || 0) + 1;
                     }
+
                     if (data.scores) {
+                        let dailyMaxTime = 0;
                         for(const playerName in data.scores) {
                             const score = data.scores[playerName];
                             const totalSecs = score.mins * 60 + score.secs;
-                            if(totalSecs > 0 && totalSecs < fastestTime.time) {
-                                fastestTime.time = totalSecs;
-                                fastestTime.player = playerName;
-                            }
+                            if (totalSecs > dailyMaxTime) dailyMaxTime = totalSecs;
                         }
+
+                        players.forEach(player => {
+                            if (data.scores[player.name]) {
+                                const score = data.scores[player.name];
+                                const totalSecs = score.mins * 60 + score.secs;
+                                weeklyTotalTimes[player.name] += totalSecs;
+
+                                if(totalSecs > 0 && totalSecs < fastestTime.time) {
+                                    fastestTime.time = totalSecs;
+                                    fastestTime.player = player.name;
+                                }
+                            } else {
+                                weeklyTotalTimes[player.name] += dailyMaxTime;
+                            }
+                        });
                     }
                 });
                 
                 updateWeeklyStandings(weeklyWins, fastestTime.player);
+                updateWeeklyTimeBattle(weeklyTotalTimes);
+                renderPerformanceChart(weeklyChartData);
                 
                 const todayString = getDateString(new Date());
                 const todayDoc = querySnapshot.docs.find(d => d.id === todayString);
@@ -395,11 +567,148 @@
             });
         }
 
+        function updateWeeklyTimeBattle(totalTimes) {
+            weeklyTimeBattleContent.innerHTML = '';
+            let timeWinner = null;
+            let bestTime = Infinity;
+            let hasPlayed = false;
+
+            players.forEach(player => {
+                const totalSeconds = totalTimes[player.name];
+                 if (totalSeconds > 0) hasPlayed = true;
+                const playerTimeDiv = document.createElement('div');
+                playerTimeDiv.innerHTML = `
+                    <p class="font-semibold dark:text-gray-200">${player.name}</p>
+                    <p class="font-bold text-xl" style="color: ${player.hex}">${formatTime(totalSeconds)}</p>
+                `;
+                weeklyTimeBattleContent.appendChild(playerTimeDiv);
+
+                if (totalSeconds > 0 && totalSeconds < bestTime) {
+                    bestTime = totalSeconds;
+                    timeWinner = player.name;
+                }
+            });
+
+            if (timeWinner && hasPlayed) {
+                weeklyTimeWinnerEl.textContent = `${timeWinner} is the fastest this week!`;
+            } else {
+                weeklyTimeWinnerEl.textContent = 'Calculating...';
+            }
+        }
+
+        async function fetchAndDisplayHistory(filterType, date = new Date()) {
+            let startDate, endDate;
+            
+            switch (filterType) {
+                case 'date':
+                    startDate = new Date(date);
+                    startDate.setHours(0, 0, 0, 0);
+                    endDate = new Date(date);
+                    endDate.setHours(23, 59, 59, 999);
+                    break;
+                case 'month':
+                    startDate = new Date(date.getFullYear(), date.getMonth(), 1);
+                    endDate = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+                    endDate.setHours(23, 59, 59, 999);
+                    break;
+                case 'year':
+                    startDate = new Date(date.getFullYear(), 0, 1);
+                    endDate = new Date(date.getFullYear(), 11, 31);
+                    endDate.setHours(23, 59, 59, 999);
+                    break;
+                case 'week':
+                default:
+                    startDate = getStartOfWeek(date);
+                    endDate = new Date(startDate);
+                    endDate.setDate(startDate.getDate() + 7);
+                    break;
+            }
+
+            const q = query(scoresCollection, where("createdAt", ">=", startDate), where("createdAt", "<", endDate));
+            const querySnapshot = await getDocs(q);
+
+            historyTableBody.innerHTML = '';
+            if (querySnapshot.empty) {
+                historyNoResults.classList.remove('hidden');
+            } else {
+                historyNoResults.classList.add('hidden');
+                querySnapshot.docs.sort((a,b) => b.data().createdAt.toMillis() - a.data().createdAt.toMillis()).forEach(doc => {
+                    const data = doc.data();
+                    const winner = data.winner;
+                    const winnerData = players.find(p => p.name === winner);
+                    const winningTime = winner && data.scores[winner] ? formatTime(data.scores[winner].mins * 60 + data.scores[winner].secs) : '-';
+                    const playerCount = data.scores ? Object.keys(data.scores).length : 0;
+                    
+                    let detailsHtml = '<ul class="grid grid-cols-1 md:grid-cols-2 gap-2 p-4">';
+                    players.forEach(player => {
+                        const score = data.scores[player.name];
+                        const time = score ? formatTime(score.mins * 60 + score.secs) : 'Did not play';
+                        const timeClass = score ? 'font-mono' : 'text-gray-400 italic';
+                        detailsHtml += `<li class="flex items-center justify-between text-sm"><div class="flex items-center gap-2"><img src="${player.avatar}" class="avatar w-5 h-5"><span>${player.name}</span></div><span class="${timeClass}">${time}</span></li>`;
+                    });
+                    detailsHtml += '</ul>';
+
+                    const row = `
+                        <tr class="history-main-row cursor-pointer" data-details-id="details-${doc.id}">
+                            <td class="p-3 font-medium dark:text-gray-200 flex items-center justify-between">
+                                ${data.date}
+                                <svg class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                            </td>
+                            <td class="p-3">
+                                ${winner ? `<div class="flex items-center gap-2">
+                                    <img src="${winnerData.avatar}" class="avatar w-6 h-6" onerror="this.onerror=null;this.src='https://avatar.iran.liara.run/public';">
+                                    <span class="font-semibold dark:text-gray-300">${winner}</span>
+                                </div>` : 'Pending'}
+                            </td>
+                            <td class="p-3 dark:text-gray-300">${winningTime}</td>
+                            <td class="p-3 dark:text-gray-300">${playerCount} / ${players.length}</td>
+                        </tr>
+                        <tr id="details-${doc.id}" class="hidden">
+                            <td colspan="4" class="p-0 bg-gray-50 dark:bg-gray-900/50 history-details">
+                                ${detailsHtml}
+                            </td>
+                        </tr>`;
+                    historyTableBody.innerHTML += row;
+                });
+            }
+        }
+
+        filterControls.addEventListener('click', (e) => {
+            if (e.target.tagName === 'BUTTON') {
+                document.querySelectorAll('#filter-controls button').forEach(btn => btn.classList.remove('active'));
+                e.target.classList.add('active');
+                dateFilterInput.value = '';
+                fetchAndDisplayHistory(e.target.dataset.filter);
+            }
+        });
+
+        dateFilterInput.addEventListener('change', (e) => {
+            if (e.target.value) {
+                document.querySelectorAll('#filter-controls button').forEach(btn => btn.classList.remove('active'));
+                const selectedDate = new Date(e.target.value.replace(/-/g, '/'));
+                fetchAndDisplayHistory('date', selectedDate);
+            }
+        });
+
+        historyTableBody.addEventListener('click', (e) => {
+            const mainRow = e.target.closest('.history-main-row');
+            if (mainRow) {
+                const detailsId = mainRow.dataset.detailsId;
+                const detailsRow = document.getElementById(detailsId);
+                const chevron = mainRow.querySelector('svg');
+                if (detailsRow) {
+                    detailsRow.classList.toggle('hidden');
+                    chevron.classList.toggle('rotate-180');
+                }
+            }
+        });
+
         signInAnonymously(auth)
             .then(() => {
                 console.log("Signed in anonymously.");
                 createPlayerInputRows();
                 listenForWeeklyScores();
+                fetchAndDisplayHistory('week');
                 loadingDiv.style.display = 'none';
                 appContentDiv.classList.remove('hidden');
             })
