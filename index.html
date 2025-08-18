@@ -170,7 +170,7 @@
 
             <!-- Performance Graph Card -->
             <div class="card">
-                <h2 class="text-2xl font-semibold text-gray-800 dark:text-gray-100 mb-4">Weekly Performance Graph</h2>
+                <h2 class="text-2xl font-semibold text-gray-800 dark:text-gray-100 mb-4">Performance Graph</h2>
                 <div>
                     <canvas id="performanceChart"></canvas>
                 </div>
@@ -248,10 +248,22 @@
             document.documentElement.classList.toggle('dark');
             const isDarkMode = document.documentElement.classList.contains('dark');
             localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
-            // Re-render chart with new theme colors
-            if (window.allScores) {
-                 processAllScores(window.allScores);
+            
+            // Re-render chart with new theme colors, using the current filter
+            const activeFilterBtn = document.querySelector('.filter-btn.active');
+            const dateValue = dateFilterInput.value;
+            let filterType = 'week';
+            let referenceDate = new Date();
+            
+            if (dateValue) {
+                filterType = 'week'; // Show week context for a specific date
+                referenceDate = new Date(dateValue.replace(/-/g, '/'));
+            } else if (activeFilterBtn) {
+                filterType = activeFilterBtn.dataset.filter;
             }
+            
+            const filteredScores = getFilteredScores(filterType, referenceDate);
+            renderPerformanceChart(filteredScores, filterType, referenceDate);
         });
 
         // --- FIREBASE AND APP CONFIG ---
@@ -317,7 +329,7 @@
             if (isNaN(totalSeconds) || totalSeconds < 0) return '00:00';
             const hours = Math.floor(totalSeconds / 3600);
             const minutes = Math.floor((totalSeconds % 3600) / 60);
-            const seconds = totalSeconds % 60;
+            const seconds = Math.round(totalSeconds % 60);
             if (hours > 0) {
                 return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
             }
@@ -325,6 +337,48 @@
         }
 
         // --- CORE LOGIC ---
+
+        /**
+         * Filters the master list of scores based on a type and date.
+         * @param {string} filterType - 'week', 'month', 'year', or 'date'.
+         * @param {Date} date - The reference date for the filter.
+         * @returns {Array} - A new array with the filtered scores.
+         */
+        function getFilteredScores(filterType, date = new Date()) {
+            if (!window.allScores) return [];
+
+            let startDate, endDate;
+            
+            switch (filterType) {
+                case 'date':
+                    startDate = new Date(date);
+                    startDate.setHours(0, 0, 0, 0);
+                    endDate = new Date(date);
+                    endDate.setHours(23, 59, 59, 999);
+                    break;
+                case 'month':
+                    startDate = new Date(date.getFullYear(), date.getMonth(), 1);
+                    endDate = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+                    endDate.setHours(23, 59, 59, 999);
+                    break;
+                case 'year':
+                    startDate = new Date(date.getFullYear(), 0, 1);
+                    endDate = new Date(date.getFullYear(), 11, 31);
+                    endDate.setHours(23, 59, 59, 999);
+                    break;
+                case 'week':
+                default:
+                    startDate = getStartOfWeek(date);
+                    endDate = new Date(startDate);
+                    endDate.setDate(startDate.getDate() + 7);
+                    break;
+            }
+
+            return window.allScores.filter(score => {
+                const scoreDate = score.createdAt.toDate();
+                return scoreDate >= startDate && scoreDate < endDate;
+            });
+        }
         
         /**
          * Processes all score documents from Firestore to update the entire UI.
@@ -336,33 +390,31 @@
             
             window.allScores = allScores; // Store for filtering
 
-            // --- This Week's Data Calculation ---
-            const startOfWeek = getStartOfWeek(new Date());
-            const endOfWeek = new Date(startOfWeek);
-            endOfWeek.setDate(startOfWeek.getDate() + 7);
+            const thisWeekScores = getFilteredScores('week');
 
-            const thisWeekScores = allScores.filter(score => {
-                const scoreDate = score.createdAt.toDate();
-                return scoreDate >= startOfWeek && scoreDate < endOfWeek;
-            });
-
-            // Update UI components
+            // Update static UI components
             updateDailyUI(allScores);
             updateWeeklyStandings(thisWeekScores);
             updateWeeklyTimeBattle(thisWeekScores);
-            renderPerformanceChart(thisWeekScores);
             renderWeeklyChampions(allScores);
             
-            // Re-apply current history filter
-            const activeFilter = document.querySelector('.filter-btn.active');
+            // Re-apply current filter for history AND chart
+            const activeFilterBtn = document.querySelector('.filter-btn.active');
             const dateValue = dateFilterInput.value;
+
             if (dateValue) {
                 const selectedDate = new Date(dateValue.replace(/-/g, '/'));
-                renderHistory('date', selectedDate);
-            } else if (activeFilter) {
-                renderHistory(activeFilter.dataset.filter);
-            } else {
-                renderHistory('week'); // Default
+                renderHistory(getFilteredScores('date', selectedDate));
+                // For chart, show the week of the selected date
+                renderPerformanceChart(getFilteredScores('week', selectedDate), 'week', selectedDate);
+            } else if (activeFilterBtn) {
+                const filterType = activeFilterBtn.dataset.filter;
+                const filteredScores = getFilteredScores(filterType);
+                renderHistory(filteredScores);
+                renderPerformanceChart(filteredScores, filterType);
+            } else { // Default on first load
+                renderHistory(thisWeekScores);
+                renderPerformanceChart(thisWeekScores, 'week');
             }
         }
 
@@ -564,7 +616,6 @@
             players.forEach(p => { weeklyTotalTimes[p.name] = 0; });
             let hasPlayed = false;
 
-            // Find the max time for each day to penalize absent players
             const dailyMaxTimes = {};
             thisWeekScores.forEach(doc => {
                 let maxTime = 0;
@@ -575,7 +626,6 @@
                 dailyMaxTimes[doc.id] = maxTime;
             });
 
-            // Calculate total times
             thisWeekScores.forEach(doc => {
                 players.forEach(player => {
                     if (doc.scores && doc.scores[player.name]) {
@@ -583,7 +633,6 @@
                         weeklyTotalTimes[player.name] += totalSecs;
                         if (totalSecs > 0) hasPlayed = true;
                     } else {
-                        // Add penalty for not playing
                         weeklyTotalTimes[player.name] += dailyMaxTimes[doc.id] || 0;
                     }
                 });
@@ -614,7 +663,13 @@
             }
         }
 
-        function renderPerformanceChart(thisWeekScores) {
+        /**
+         * Renders the performance chart based on filtered scores and filter type.
+         * @param {Array} scores - The array of score objects to display.
+         * @param {string} filterType - 'week', 'month', or 'year'.
+         * @param {Date} referenceDate - The date used for filtering, to determine context (e.g., which month).
+         */
+        function renderPerformanceChart(scores, filterType, referenceDate = new Date()) {
             if (performanceChart) {
                 performanceChart.destroy();
             }
@@ -623,25 +678,90 @@
             const gridColor = isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
             const textColor = isDarkMode ? '#E5E7EB' : '#374151';
 
-            const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-            const datasets = players.map(player => {
-                const data = labels.map((day, index) => {
-                    const dayData = thisWeekScores.find(d => ((d.createdAt.toDate().getDay() + 6) % 7) === index);
-                    if (dayData && dayData.scores && dayData.scores[player.name]) {
-                        return dayData.scores[player.name].mins * 60 + dayData.scores[player.name].secs;
-                    }
-                    return null;
-                });
+            let labels;
+            let datasets;
+            let chartTitle = 'Performance';
 
-                return {
-                    label: player.name,
-                    data: data,
-                    borderColor: player.hex,
-                    backgroundColor: `${player.hex}33`,
-                    fill: false,
-                    tension: 0.3,
-                };
-            });
+            switch (filterType) {
+                case 'year':
+                    chartTitle = `Yearly Average Performance (${referenceDate.getFullYear()})`;
+                    labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                    datasets = players.map(player => {
+                        const monthlyAverages = Array(12).fill(null);
+                        const monthlyTotals = Array(12).fill(0);
+                        const monthlyCounts = Array(12).fill(0);
+
+                        scores.forEach(score => {
+                            if (score.scores && score.scores[player.name]) {
+                                const month = score.createdAt.toDate().getMonth();
+                                monthlyTotals[month] += score.scores[player.name].mins * 60 + score.scores[player.name].secs;
+                                monthlyCounts[month]++;
+                            }
+                        });
+
+                        for (let i = 0; i < 12; i++) {
+                            if (monthlyCounts[i] > 0) {
+                                monthlyAverages[i] = monthlyTotals[i] / monthlyCounts[i];
+                            }
+                        }
+
+                        return {
+                            label: player.name,
+                            data: monthlyAverages,
+                            borderColor: player.hex,
+                            backgroundColor: `${player.hex}33`,
+                            fill: false,
+                            tension: 0.3,
+                        };
+                    });
+                    break;
+
+                case 'month':
+                    chartTitle = `Monthly Performance (${referenceDate.toLocaleString('default', { month: 'long', year: 'numeric' })})`;
+                    const daysInMonth = new Date(referenceDate.getFullYear(), referenceDate.getMonth() + 1, 0).getDate();
+                    labels = Array.from({ length: daysInMonth }, (_, i) => String(i + 1));
+                    datasets = players.map(player => {
+                        const data = Array(daysInMonth).fill(null);
+                        scores.forEach(score => {
+                            if (score.scores && score.scores[player.name]) {
+                                const dayOfMonth = score.createdAt.toDate().getDate() - 1; // 0-indexed
+                                data[dayOfMonth] = score.scores[player.name].mins * 60 + score.scores[player.name].secs;
+                            }
+                        });
+                        return {
+                            label: player.name,
+                            data: data,
+                            borderColor: player.hex,
+                            backgroundColor: `${player.hex}33`,
+                            fill: false,
+                            tension: 0.3,
+                        };
+                    });
+                    break;
+
+                case 'week':
+                default:
+                    chartTitle = 'Weekly Performance';
+                    labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+                    datasets = players.map(player => {
+                        const data = Array(7).fill(null);
+                        scores.forEach(d => {
+                            const dayIndex = (d.createdAt.toDate().getDay() + 6) % 7;
+                            if (d.scores && d.scores[player.name]) {
+                                data[dayIndex] = d.scores[player.name].mins * 60 + d.scores[player.name].secs;
+                            }
+                        });
+                        return {
+                            label: player.name,
+                            data: data,
+                            borderColor: player.hex,
+                            backgroundColor: `${player.hex}33`,
+                            fill: false,
+                            tension: 0.3,
+                        };
+                    });
+                    break;
+            }
 
             performanceChart = new Chart(chartCanvas, {
                 type: 'line',
@@ -659,6 +779,7 @@
                     },
                     plugins: {
                         legend: { labels: { color: textColor } },
+                        title: { display: true, text: chartTitle, color: textColor, font: { size: 16 } },
                         tooltip: {
                             callbacks: {
                                 label: (context) => `${context.dataset.label}: ${formatTime(context.parsed.y)}`
@@ -714,10 +835,28 @@
             } else {
                 weeklyWinnersNoResults.classList.add('hidden');
                 weeklyChampions.sort((a,b) => new Date(b.weekOf) - new Date(a.weekOf)).forEach(week => {
+                    const startDate = new Date(week.weekOf.replace(/-/g, '/'));
+                    const endDate = new Date(startDate);
+                    endDate.setDate(startDate.getDate() + 6);
+
+                    const startMonth = startDate.toLocaleString('default', { month: 'short' });
+                    const startDay = startDate.getDate();
+                    const endMonth = endDate.toLocaleString('default', { month: 'short' });
+                    const endDay = endDate.getDate();
+
+                    let weekDisplay;
+                    if (startMonth === endMonth) {
+                        // Example: Aug 11-17
+                        weekDisplay = `${startMonth} ${startDay}-${endDay}`;
+                    } else {
+                        // Example: Aug 30 - Sep 5
+                        weekDisplay = `${startMonth} ${startDay} - ${endMonth} ${endDay}`;
+                    }
+
                     const championData = players.find(p => p.name === week.champions[0]);
                     const row = document.createElement('tr');
                     row.innerHTML = `
-                        <td class="p-3 font-medium dark:text-gray-200">${week.weekOf}</td>
+                        <td class="p-3 font-medium dark:text-gray-200">${weekDisplay}</td>
                         <td class="p-3">
                             <div class="flex items-center gap-2">
                                 <img src="${championData.avatar}" class="avatar w-6 h-6" onerror="this.onerror=null;this.src='https://avatar.iran.liara.run/public';">
@@ -731,41 +870,7 @@
             }
         }
 
-        function renderHistory(filterType, date = new Date()) {
-            if (!window.allScores) return;
-
-            let startDate, endDate;
-            
-            switch (filterType) {
-                case 'date':
-                    startDate = new Date(date);
-                    startDate.setHours(0, 0, 0, 0);
-                    endDate = new Date(date);
-                    endDate.setHours(23, 59, 59, 999);
-                    break;
-                case 'month':
-                    startDate = new Date(date.getFullYear(), date.getMonth(), 1);
-                    endDate = new Date(date.getFullYear(), date.getMonth() + 1, 0);
-                    endDate.setHours(23, 59, 59, 999);
-                    break;
-                case 'year':
-                    startDate = new Date(date.getFullYear(), 0, 1);
-                    endDate = new Date(date.getFullYear(), 11, 31);
-                    endDate.setHours(23, 59, 59, 999);
-                    break;
-                case 'week':
-                default:
-                    startDate = getStartOfWeek(date);
-                    endDate = new Date(startDate);
-                    endDate.setDate(startDate.getDate() + 7);
-                    break;
-            }
-
-            const filteredScores = window.allScores.filter(score => {
-                const scoreDate = score.createdAt.toDate();
-                return scoreDate >= startDate && scoreDate < endDate;
-            });
-
+        function renderHistory(filteredScores) {
             historyTableBody.innerHTML = '';
             if (filteredScores.length === 0) {
                 historyNoResults.classList.remove('hidden');
@@ -817,7 +922,10 @@
                 document.querySelectorAll('#filter-controls button').forEach(btn => btn.classList.remove('active'));
                 e.target.classList.add('active');
                 dateFilterInput.value = '';
-                renderHistory(e.target.dataset.filter);
+                const filterType = e.target.dataset.filter;
+                const filteredScores = getFilteredScores(filterType);
+                renderHistory(filteredScores);
+                renderPerformanceChart(filteredScores, filterType);
             }
         });
 
@@ -825,7 +933,9 @@
             if (e.target.value) {
                 document.querySelectorAll('#filter-controls button').forEach(btn => btn.classList.remove('active'));
                 const selectedDate = new Date(e.target.value.replace(/-/g, '/'));
-                renderHistory('date', selectedDate);
+                renderHistory(getFilteredScores('date', selectedDate));
+                // For the chart, show the week view that contains the selected date
+                renderPerformanceChart(getFilteredScores('week', selectedDate), 'week', selectedDate);
             }
         });
 
