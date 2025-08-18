@@ -101,6 +101,7 @@
         }
     </style>
     <script>
+        // Manages theme settings on initial load to prevent flash of incorrect theme
         if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
           document.documentElement.classList.add('dark')
         } else {
@@ -116,9 +117,9 @@
             <h1 class="text-4xl font-bold text-gray-900 dark:text-white">Multiplayer Scoreboard</h1>
             <p class="text-gray-600 dark:text-gray-400 mt-2">Enter daily times to find the weekly champion!</p>
              <button id="theme-toggle" class="absolute top-0 right-0 p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none">
-                <svg id="theme-toggle-dark-icon" class="w-6 h-6 hidden" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path></svg>
-                <svg id="theme-toggle-light-icon" class="w-6 h-6 hidden" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" fill-rule="evenodd" clip-rule="evenodd"></path></svg>
-            </button>
+                 <svg id="theme-toggle-dark-icon" class="w-6 h-6 hidden" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path></svg>
+                 <svg id="theme-toggle-light-icon" class="w-6 h-6 hidden" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" fill-rule="evenodd" clip-rule="evenodd"></path></svg>
+             </button>
         </header>
 
         <div id="loading" class="text-center text-gray-500">Loading scoreboard...</div>
@@ -163,8 +164,8 @@
                 <div id="weekly-time-battle-content" class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
                 </div>
                  <div class="mt-6 text-center">
-                    <p id="weekly-time-winner" class="text-2xl font-bold text-indigo-600 dark:text-indigo-400">Calculating...</p>
-                </div>
+                     <p id="weekly-time-winner" class="text-2xl font-bold text-indigo-600 dark:text-indigo-400">Calculating...</p>
+                 </div>
             </div>
 
             <!-- Performance Graph Card -->
@@ -172,6 +173,26 @@
                 <h2 class="text-2xl font-semibold text-gray-800 dark:text-gray-100 mb-4">Weekly Performance Graph</h2>
                 <div>
                     <canvas id="performanceChart"></canvas>
+                </div>
+            </div>
+            
+            <!-- NEW: Weekly Champions Card -->
+            <div class="card">
+                <h2 class="text-2xl font-semibold text-gray-800 dark:text-gray-100 mb-4">Weekly Champions</h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead class="bg-gray-50 dark:bg-gray-700">
+                            <tr>
+                                <th class="p-3 font-semibold text-sm text-gray-600 dark:text-gray-300">Week Of</th>
+                                <th class="p-3 font-semibold text-sm text-gray-600 dark:text-gray-300">Champion</th>
+                                <th class="p-3 font-semibold text-sm text-gray-600 dark:text-gray-300">Total Wins</th>
+                            </tr>
+                        </thead>
+                        <tbody id="weekly-winners-body" class="divide-y divide-gray-200 dark:divide-gray-700">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                    <p id="weekly-winners-no-results" class="text-center text-gray-500 dark:text-gray-400 p-4 hidden">No weekly champions yet.</p>
                 </div>
             </div>
 
@@ -208,7 +229,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, onSnapshot, getDoc, query, where, getDocs, Timestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, doc, setDoc, onSnapshot, getDoc, Timestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- THEME TOGGLE LOGIC ---
         const themeToggleBtn = document.getElementById('theme-toggle');
@@ -225,14 +246,15 @@
             themeToggleDarkIcon.classList.toggle('hidden');
             themeToggleLightIcon.classList.toggle('hidden');
             document.documentElement.classList.toggle('dark');
-            if (document.documentElement.classList.contains('dark')) {
-                localStorage.setItem('theme', 'dark');
-            } else {
-                localStorage.setItem('theme', 'light');
+            const isDarkMode = document.documentElement.classList.contains('dark');
+            localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
+            // Re-render chart with new theme colors
+            if (window.allScores) {
+                 processAllScores(window.allScores);
             }
         });
 
-        // --- FIREBASE AND APP LOGIC ---
+        // --- FIREBASE AND APP CONFIG ---
         const firebaseConfig = {
             apiKey: "AIzaSyAJ9K9fQ0ThMB7aXB6qNHr3_yLUdqJgnCM",
             authDomain: "my-chain-reaction-game.firebaseapp.com",
@@ -249,6 +271,7 @@
 
         const scoresCollection = collection(db, "multiplayer-zip-game-scores");
         
+        // --- PLAYER DATA ---
         const players = [
             { name: 'Alvin', color: 'bg-red-100 text-red-800', hex: '#EF4444' },
             { name: 'Shany', color: 'bg-pink-100 text-pink-800', hex: '#EC4899' },
@@ -259,6 +282,7 @@
             { name: 'Abhishek', color: 'bg-yellow-100 text-yellow-800', hex: '#F59E0B' }
         ].map(p => ({...p, avatar: `https://avatar.iran.liara.run/public/${['Shany', 'Vismaya'].includes(p.name) ? 'girl' : 'boy'}?username=${p.name}`}));
 
+        // --- DOM ELEMENTS ---
         const loadingDiv = document.getElementById('loading');
         const appContentDiv = document.getElementById('app-content');
         const playerInputsBody = document.getElementById('player-inputs-body');
@@ -272,18 +296,18 @@
         const dateFilterInput = document.getElementById('date-filter');
         const historyTableBody = document.getElementById('history-table-body');
         const historyNoResults = document.getElementById('history-no-results');
+        const weeklyWinnersBody = document.getElementById('weekly-winners-body');
+        const weeklyWinnersNoResults = document.getElementById('weekly-winners-no-results');
 
+        // --- UTILITY FUNCTIONS ---
         function getDateString(date) {
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            return `${year}-${month}-${day}`;
+            return date.toISOString().split('T')[0];
         }
         
         function getStartOfWeek(date) {
             const d = new Date(date);
             const day = d.getDay();
-            const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+            const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
             const startOfWeek = new Date(d.setDate(diff));
             startOfWeek.setHours(0, 0, 0, 0);
             return startOfWeek;
@@ -294,13 +318,57 @@
             const hours = Math.floor(totalSeconds / 3600);
             const minutes = Math.floor((totalSeconds % 3600) / 60);
             const seconds = totalSeconds % 60;
-
             if (hours > 0) {
                 return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
             }
             return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
         }
 
+        // --- CORE LOGIC ---
+        
+        /**
+         * Processes all score documents from Firestore to update the entire UI.
+         * @param {Array} allDocs - Array of Firestore document snapshots.
+         */
+        function processAllScores(allDocs) {
+            const allScores = allDocs.map(doc => ({ id: doc.id, ...doc.data() }))
+                                     .sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
+            
+            window.allScores = allScores; // Store for filtering
+
+            // --- This Week's Data Calculation ---
+            const startOfWeek = getStartOfWeek(new Date());
+            const endOfWeek = new Date(startOfWeek);
+            endOfWeek.setDate(startOfWeek.getDate() + 7);
+
+            const thisWeekScores = allScores.filter(score => {
+                const scoreDate = score.createdAt.toDate();
+                return scoreDate >= startOfWeek && scoreDate < endOfWeek;
+            });
+
+            // Update UI components
+            updateDailyUI(allScores);
+            updateWeeklyStandings(thisWeekScores);
+            updateWeeklyTimeBattle(thisWeekScores);
+            renderPerformanceChart(thisWeekScores);
+            renderWeeklyChampions(allScores);
+            
+            // Re-apply current history filter
+            const activeFilter = document.querySelector('.filter-btn.active');
+            const dateValue = dateFilterInput.value;
+            if (dateValue) {
+                const selectedDate = new Date(dateValue.replace(/-/g, '/'));
+                renderHistory('date', selectedDate);
+            } else if (activeFilter) {
+                renderHistory(activeFilter.dataset.filter);
+            } else {
+                renderHistory('week'); // Default
+            }
+        }
+
+        /**
+         * Creates the initial input rows for each player.
+         */
         function createPlayerInputRows() {
             players.forEach(player => {
                 const row = document.createElement('tr');
@@ -331,6 +399,10 @@
             });
         }
 
+        /**
+         * Saves a player's time for the current day to Firestore.
+         * @param {string} playerName - The name of the player.
+         */
         async function savePlayerTime(playerName) {
             const minsInput = document.getElementById(`mins-${playerName}`);
             const secsInput = document.getElementById(`secs-${playerName}`);
@@ -356,10 +428,12 @@
             };
 
             try {
+                statusEl.textContent = 'Saving...';
                 await setDoc(docRef, dataToSave, { merge: true });
                 statusEl.textContent = 'Saved!';
                 statusEl.className = 'text-sm text-green-500';
 
+                // After saving, check if all players have submitted scores to declare a winner.
                 const updatedDoc = await getDoc(docRef);
                 if (updatedDoc.exists()) {
                     const scores = updatedDoc.data().scores;
@@ -374,6 +448,11 @@
             }
         }
 
+        /**
+         * Calculates the winner from a set of scores and updates the Firestore document.
+         * @param {string} docId - The ID of the document (date string).
+         * @param {Object} scores - The scores object for the day.
+         */
         async function calculateAndSetWinner(docId, scores) {
             let winner = null;
             let bestTime = Infinity;
@@ -389,8 +468,153 @@
                 await setDoc(doc(scoresCollection, docId), { winner: winner }, { merge: true });
             }
         }
+        
+        // --- UI RENDERING FUNCTIONS ---
 
-        function renderPerformanceChart(weeklyData) {
+        function updateDailyUI(allScores) {
+            const todayString = getDateString(new Date());
+            const todayDoc = allScores.find(doc => doc.id === todayString);
+            const scores = todayDoc ? todayDoc.scores || {} : {};
+
+            players.forEach(player => {
+                const minsInput = document.getElementById(`mins-${player.name}`);
+                const secsInput = document.getElementById(`secs-${player.name}`);
+                const btn = document.getElementById(`btn-${player.name}`);
+                const statusEl = document.getElementById(`status-${player.name}`);
+
+                if (scores[player.name]) {
+                    minsInput.value = scores[player.name].mins;
+                    secsInput.value = scores[player.name].secs;
+                    minsInput.disabled = true;
+                    secsInput.disabled = true;
+                    btn.disabled = true;
+                    statusEl.textContent = 'Locked';
+                    statusEl.className = 'text-sm text-blue-500';
+                } else {
+                    // Reset fields if no score for today
+                    minsInput.value = '';
+                    secsInput.value = '';
+                    minsInput.disabled = false;
+                    secsInput.disabled = false;
+                    btn.disabled = false;
+                    statusEl.textContent = 'Waiting...';
+                    statusEl.className = 'text-sm text-gray-500';
+                }
+            });
+
+            if (todayDoc && todayDoc.winner) {
+                const winnerData = players.find(p => p.name === todayDoc.winner);
+                dailyWinnerDiv.innerHTML = `
+                    <img src="${winnerData.avatar}" alt="${winnerData.name}" class="avatar" onerror="this.onerror=null;this.src='https://avatar.iran.liara.run/public';">
+                    <span>${todayDoc.winner}</span>
+                `;
+                dailyWinnerDiv.className = `winner-badge ${winnerData.color}`;
+            } else {
+                dailyWinnerDiv.innerHTML = `Pending...`;
+                dailyWinnerDiv.className = 'winner-badge winner-pending';
+            }
+        }
+
+        function updateWeeklyStandings(thisWeekScores) {
+            const weeklyWins = {};
+            players.forEach(p => { weeklyWins[p.name] = 0; });
+            
+            let fastestTime = { player: null, time: Infinity };
+
+            thisWeekScores.forEach(doc => {
+                if (doc.winner) {
+                    weeklyWins[doc.winner]++;
+                }
+                if (doc.scores) {
+                    for(const playerName in doc.scores) {
+                        const totalSecs = doc.scores[playerName].mins * 60 + doc.scores[playerName].secs;
+                        if(totalSecs > 0 && totalSecs < fastestTime.time) {
+                            fastestTime = { player: playerName, time: totalSecs };
+                        }
+                    }
+                }
+            });
+
+            const sortedPlayers = Object.entries(weeklyWins).sort(([, a], [, b]) => b - a);
+            
+            weeklyStandingsDiv.innerHTML = '';
+            if (thisWeekScores.length === 0) {
+                 weeklyStandingsDiv.innerHTML = `<p class="text-gray-500 dark:text-gray-400">No scores yet this week.</p>`;
+                 return;
+            }
+
+            sortedPlayers.forEach(([name, wins]) => {
+                const playerData = players.find(p => p.name === name);
+                const standingDiv = document.createElement('div');
+                standingDiv.className = 'flex items-center justify-between p-2 rounded-lg';
+                standingDiv.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <img src="${playerData.avatar}" alt="${name}" class="avatar w-8 h-8" onerror="this.onerror=null;this.src='https://avatar.iran.liara.run/public';">
+                        <span class="font-semibold dark:text-gray-200">${name} ${name === fastestTime.player ? '🚀' : ''}</span>
+                    </div>
+                    <span class="font-bold text-lg dark:text-gray-300">${wins} Win(s)</span>
+                `;
+                weeklyStandingsDiv.appendChild(standingDiv);
+            });
+        }
+
+        function updateWeeklyTimeBattle(thisWeekScores) {
+            weeklyTimeBattleContent.innerHTML = '';
+            const weeklyTotalTimes = {};
+            players.forEach(p => { weeklyTotalTimes[p.name] = 0; });
+            let hasPlayed = false;
+
+            // Find the max time for each day to penalize absent players
+            const dailyMaxTimes = {};
+            thisWeekScores.forEach(doc => {
+                let maxTime = 0;
+                for (const playerName in doc.scores) {
+                    const totalSecs = doc.scores[playerName].mins * 60 + doc.scores[playerName].secs;
+                    if (totalSecs > maxTime) maxTime = totalSecs;
+                }
+                dailyMaxTimes[doc.id] = maxTime;
+            });
+
+            // Calculate total times
+            thisWeekScores.forEach(doc => {
+                players.forEach(player => {
+                    if (doc.scores && doc.scores[player.name]) {
+                        const totalSecs = doc.scores[player.name].mins * 60 + doc.scores[player.name].secs;
+                        weeklyTotalTimes[player.name] += totalSecs;
+                        if (totalSecs > 0) hasPlayed = true;
+                    } else {
+                        // Add penalty for not playing
+                        weeklyTotalTimes[player.name] += dailyMaxTimes[doc.id] || 0;
+                    }
+                });
+            });
+
+            let timeWinner = null;
+            let bestTime = Infinity;
+
+            players.forEach(player => {
+                const totalSeconds = weeklyTotalTimes[player.name];
+                const playerTimeDiv = document.createElement('div');
+                playerTimeDiv.innerHTML = `
+                    <p class="font-semibold dark:text-gray-200">${player.name}</p>
+                    <p class="font-bold text-xl" style="color: ${player.hex}">${formatTime(totalSeconds)}</p>
+                `;
+                weeklyTimeBattleContent.appendChild(playerTimeDiv);
+
+                if (totalSeconds > 0 && totalSeconds < bestTime) {
+                    bestTime = totalSeconds;
+                    timeWinner = player.name;
+                }
+            });
+
+            if (timeWinner && hasPlayed) {
+                weeklyTimeWinnerEl.textContent = `${timeWinner} is the fastest this week!`;
+            } else {
+                weeklyTimeWinnerEl.textContent = 'Calculating...';
+            }
+        }
+
+        function renderPerformanceChart(thisWeekScores) {
             if (performanceChart) {
                 performanceChart.destroy();
             }
@@ -401,8 +625,8 @@
 
             const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
             const datasets = players.map(player => {
-                const data = labels.map(day => {
-                    const dayData = weeklyData.find(d => d.day === day);
+                const data = labels.map((day, index) => {
+                    const dayData = thisWeekScores.find(d => ((d.createdAt.toDate().getDay() + 6) % 7) === index);
                     if (dayData && dayData.scores && dayData.scores[player.name]) {
                         return dayData.scores[player.name].mins * 60 + dayData.scores[player.name].secs;
                     }
@@ -444,159 +668,72 @@
                 }
             });
         }
-
-        function listenForWeeklyScores() {
-            const startOfWeek = getStartOfWeek(new Date());
-            const endOfWeek = new Date(startOfWeek);
-            endOfWeek.setDate(startOfWeek.getDate() + 7);
-
-            const q = query(scoresCollection, where("createdAt", ">=", startOfWeek), where("createdAt", "<", endOfWeek));
-
-            onSnapshot(q, (querySnapshot) => {
-                const weeklyWins = {};
-                const weeklyTotalTimes = {};
-                let fastestTime = { player: null, time: Infinity };
-                
-                players.forEach(p => { 
-                    weeklyWins[p.name] = 0;
-                    weeklyTotalTimes[p.name] = 0;
-                });
-                
-                const weeklyChartData = [];
-                const daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
-                querySnapshot.forEach(doc => {
-                    const data = doc.data();
-                    const dayIndex = (data.createdAt.toDate().getDay() + 6) % 7;
-                    weeklyChartData.push({ day: daysOfWeek[dayIndex], scores: data.scores });
-
-                    if (data.winner) {
-                        weeklyWins[data.winner] = (weeklyWins[data.winner] || 0) + 1;
-                    }
-
-                    if (data.scores) {
-                        let dailyMaxTime = 0;
-                        for(const playerName in data.scores) {
-                            const score = data.scores[playerName];
-                            const totalSecs = score.mins * 60 + score.secs;
-                            if (totalSecs > dailyMaxTime) dailyMaxTime = totalSecs;
-                        }
-
-                        players.forEach(player => {
-                            if (data.scores[player.name]) {
-                                const score = data.scores[player.name];
-                                const totalSecs = score.mins * 60 + score.secs;
-                                weeklyTotalTimes[player.name] += totalSecs;
-
-                                if(totalSecs > 0 && totalSecs < fastestTime.time) {
-                                    fastestTime.time = totalSecs;
-                                    fastestTime.player = player.name;
-                                }
-                            } else {
-                                weeklyTotalTimes[player.name] += dailyMaxTime;
-                            }
-                        });
-                    }
-                });
-                
-                updateWeeklyStandings(weeklyWins, fastestTime.player);
-                updateWeeklyTimeBattle(weeklyTotalTimes);
-                renderPerformanceChart(weeklyChartData);
-                
-                const todayString = getDateString(new Date());
-                const todayDoc = querySnapshot.docs.find(d => d.id === todayString);
-                updateDailyUI(todayDoc);
-            });
-        }
         
-        function updateDailyUI(doc) {
-            const data = doc ? doc.data() : {};
-            const scores = data.scores || {};
-            
-            players.forEach(player => {
-                const minsInput = document.getElementById(`mins-${player.name}`);
-                const secsInput = document.getElementById(`secs-${player.name}`);
-                const btn = document.getElementById(`btn-${player.name}`);
-                const statusEl = document.getElementById(`status-${player.name}`);
-
-                if (scores[player.name]) {
-                    minsInput.value = scores[player.name].mins;
-                    secsInput.value = scores[player.name].secs;
-                    minsInput.disabled = true;
-                    secsInput.disabled = true;
-                    btn.disabled = true;
-                    statusEl.textContent = 'Locked';
-                    statusEl.className = 'text-sm text-blue-500';
+        function renderWeeklyChampions(allScores) {
+            const weeklyGroups = {};
+            allScores.forEach(score => {
+                const startOfWeek = getStartOfWeek(score.createdAt.toDate());
+                const weekId = getDateString(startOfWeek);
+                if (!weeklyGroups[weekId]) {
+                    weeklyGroups[weekId] = [];
                 }
+                weeklyGroups[weekId].push(score);
             });
 
-            if (data.winner) {
-                const winnerData = players.find(p => p.name === data.winner);
-                dailyWinnerDiv.innerHTML = `
-                    <img src="${winnerData.avatar}" alt="${winnerData.name}" class="avatar" onerror="this.onerror=null;this.src='https://avatar.iran.liara.run/public';">
-                    <span>${data.winner}</span>
-                `;
-                dailyWinnerDiv.className = `winner-badge ${winnerData.color}`;
-            } else {
-                dailyWinnerDiv.innerHTML = `Pending...`;
-                dailyWinnerDiv.className = 'winner-badge winner-pending';
-            }
-        }
+            const weeklyChampions = [];
+            for (const weekId in weeklyGroups) {
+                const weekScores = weeklyGroups[weekId];
+                const winCounts = {};
+                players.forEach(p => { winCounts[p.name] = 0; });
+                
+                weekScores.forEach(score => {
+                    if (score.winner) {
+                        winCounts[score.winner]++;
+                    }
+                });
 
-        function updateWeeklyStandings(weeklyWins, speedDemonPlayer) {
-            const sortedPlayers = Object.entries(weeklyWins).sort(([, a], [, b]) => b - a);
-            
-            weeklyStandingsDiv.innerHTML = '';
-            if (sortedPlayers.every(([,wins]) => wins === 0)) {
-                 weeklyStandingsDiv.innerHTML = `<p class="text-gray-500 dark:text-gray-400">No scores yet this week.</p>`;
-                 return;
-            }
-
-            sortedPlayers.forEach(([name, wins]) => {
-                const playerData = players.find(p => p.name === name);
-                const standingDiv = document.createElement('div');
-                standingDiv.className = 'flex items-center justify-between p-2 rounded-lg';
-                standingDiv.innerHTML = `
-                    <div class="flex items-center gap-3">
-                        <img src="${playerData.avatar}" alt="${name}" class="avatar w-8 h-8" onerror="this.onerror=null;this.src='https://avatar.iran.liara.run/public';">
-                        <span class="font-semibold dark:text-gray-200">${name} ${name === speedDemonPlayer ? '🚀' : ''}</span>
-                    </div>
-                    <span class="font-bold text-lg dark:text-gray-300">${wins} Win(s)</span>
-                `;
-                weeklyStandingsDiv.appendChild(standingDiv);
-            });
-        }
-
-        function updateWeeklyTimeBattle(totalTimes) {
-            weeklyTimeBattleContent.innerHTML = '';
-            let timeWinner = null;
-            let bestTime = Infinity;
-            let hasPlayed = false;
-
-            players.forEach(player => {
-                const totalSeconds = totalTimes[player.name];
-                 if (totalSeconds > 0) hasPlayed = true;
-                const playerTimeDiv = document.createElement('div');
-                playerTimeDiv.innerHTML = `
-                    <p class="font-semibold dark:text-gray-200">${player.name}</p>
-                    <p class="font-bold text-xl" style="color: ${player.hex}">${formatTime(totalSeconds)}</p>
-                `;
-                weeklyTimeBattleContent.appendChild(playerTimeDiv);
-
-                if (totalSeconds > 0 && totalSeconds < bestTime) {
-                    bestTime = totalSeconds;
-                    timeWinner = player.name;
+                let maxWins = 0;
+                let champions = [];
+                for (const player in winCounts) {
+                    if (winCounts[player] > maxWins) {
+                        maxWins = winCounts[player];
+                        champions = [player];
+                    } else if (winCounts[player] === maxWins && maxWins > 0) {
+                        champions.push(player);
+                    }
                 }
-            });
+                
+                if (champions.length > 0) {
+                    weeklyChampions.push({ weekOf: weekId, champions, wins: maxWins });
+                }
+            }
 
-            if (timeWinner && hasPlayed) {
-                weeklyTimeWinnerEl.textContent = `${timeWinner} is the fastest this week!`;
+            weeklyWinnersBody.innerHTML = '';
+            if (weeklyChampions.length === 0) {
+                weeklyWinnersNoResults.classList.remove('hidden');
             } else {
-                weeklyTimeWinnerEl.textContent = 'Calculating...';
+                weeklyWinnersNoResults.classList.add('hidden');
+                weeklyChampions.sort((a,b) => new Date(b.weekOf) - new Date(a.weekOf)).forEach(week => {
+                    const championData = players.find(p => p.name === week.champions[0]);
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td class="p-3 font-medium dark:text-gray-200">${week.weekOf}</td>
+                        <td class="p-3">
+                            <div class="flex items-center gap-2">
+                                <img src="${championData.avatar}" class="avatar w-6 h-6" onerror="this.onerror=null;this.src='https://avatar.iran.liara.run/public';">
+                                <span class="font-semibold dark:text-gray-300">${week.champions.join(', ')}</span>
+                            </div>
+                        </td>
+                        <td class="p-3 dark:text-gray-300">${week.wins}</td>
+                    `;
+                    weeklyWinnersBody.appendChild(row);
+                });
             }
         }
 
-        async function fetchAndDisplayHistory(filterType, date = new Date()) {
+        function renderHistory(filterType, date = new Date()) {
+            if (!window.allScores) return;
+
             let startDate, endDate;
             
             switch (filterType) {
@@ -624,16 +761,17 @@
                     break;
             }
 
-            const q = query(scoresCollection, where("createdAt", ">=", startDate), where("createdAt", "<", endDate));
-            const querySnapshot = await getDocs(q);
+            const filteredScores = window.allScores.filter(score => {
+                const scoreDate = score.createdAt.toDate();
+                return scoreDate >= startDate && scoreDate < endDate;
+            });
 
             historyTableBody.innerHTML = '';
-            if (querySnapshot.empty) {
+            if (filteredScores.length === 0) {
                 historyNoResults.classList.remove('hidden');
             } else {
                 historyNoResults.classList.add('hidden');
-                querySnapshot.docs.sort((a,b) => b.data().createdAt.toMillis() - a.data().createdAt.toMillis()).forEach(doc => {
-                    const data = doc.data();
+                filteredScores.forEach(data => {
                     const winner = data.winner;
                     const winnerData = players.find(p => p.name === winner);
                     const winningTime = winner && data.scores[winner] ? formatTime(data.scores[winner].mins * 60 + data.scores[winner].secs) : '-';
@@ -649,7 +787,7 @@
                     detailsHtml += '</ul>';
 
                     const row = `
-                        <tr class="history-main-row cursor-pointer" data-details-id="details-${doc.id}">
+                        <tr class="history-main-row cursor-pointer" data-details-id="details-${data.id}">
                             <td class="p-3 font-medium dark:text-gray-200 flex items-center justify-between">
                                 ${data.date}
                                 <svg class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
@@ -663,7 +801,7 @@
                             <td class="p-3 dark:text-gray-300">${winningTime}</td>
                             <td class="p-3 dark:text-gray-300">${playerCount} / ${players.length}</td>
                         </tr>
-                        <tr id="details-${doc.id}" class="hidden">
+                        <tr id="details-${data.id}" class="hidden">
                             <td colspan="4" class="p-0 bg-gray-50 dark:bg-gray-900/50 history-details">
                                 ${detailsHtml}
                             </td>
@@ -673,12 +811,13 @@
             }
         }
 
+        // --- EVENT LISTENERS ---
         filterControls.addEventListener('click', (e) => {
             if (e.target.tagName === 'BUTTON') {
                 document.querySelectorAll('#filter-controls button').forEach(btn => btn.classList.remove('active'));
                 e.target.classList.add('active');
                 dateFilterInput.value = '';
-                fetchAndDisplayHistory(e.target.dataset.filter);
+                renderHistory(e.target.dataset.filter);
             }
         });
 
@@ -686,7 +825,7 @@
             if (e.target.value) {
                 document.querySelectorAll('#filter-controls button').forEach(btn => btn.classList.remove('active'));
                 const selectedDate = new Date(e.target.value.replace(/-/g, '/'));
-                fetchAndDisplayHistory('date', selectedDate);
+                renderHistory('date', selectedDate);
             }
         });
 
@@ -703,12 +842,18 @@
             }
         });
 
+        // --- INITIALIZATION ---
         signInAnonymously(auth)
             .then(() => {
                 console.log("Signed in anonymously.");
                 createPlayerInputRows();
-                listenForWeeklyScores();
-                fetchAndDisplayHistory('week');
+                
+                // Set up a real-time listener for the entire collection
+                onSnapshot(scoresCollection, (querySnapshot) => {
+                    console.log("Detected a change in scores, reprocessing all data.");
+                    processAllScores(querySnapshot.docs);
+                });
+
                 loadingDiv.style.display = 'none';
                 appContentDiv.classList.remove('hidden');
             })
