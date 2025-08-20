@@ -485,14 +485,6 @@
                 statusEl.textContent = 'Saved!';
                 statusEl.className = 'text-sm text-green-500';
 
-                // After saving, check if all players have submitted scores to declare a winner.
-                const updatedDoc = await getDoc(docRef);
-                if (updatedDoc.exists()) {
-                    const scores = updatedDoc.data().scores;
-                    if (Object.keys(scores).length === players.length) {
-                        calculateAndSetWinner(todayString, scores);
-                    }
-                }
             } catch (error) {
                 console.error(`Error saving ${playerName}'s time:`, error);
                 statusEl.textContent = 'Error!';
@@ -517,7 +509,78 @@
                 }
             }
             if (winner) {
-                await setDoc(doc(scoresCollection, docId), { winner: winner }, { merge: true });
+                const docRef = doc(scoresCollection, docId);
+                await setDoc(docRef, { winner: winner }, { merge: true });
+            }
+        }
+
+        /**
+         * Checks the previous day's scores and finalizes them if incomplete.
+         * This applies a penalty to players who did not submit a time.
+         */
+        async function finalizePreviousDayScores() {
+            const today = new Date();
+            const yesterday = new Date(today);
+            yesterday.setDate(today.getDate() - 1);
+            const yesterdayString = getDateString(yesterday);
+
+            const docRef = doc(scoresCollection, yesterdayString);
+            const docSnap = await getDoc(docRef);
+
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                if (data.isFinalized) {
+                    console.log(`Scores for ${yesterdayString} are already finalized.`);
+                    return;
+                }
+
+                const scores = data.scores || {};
+                const submittedPlayers = Object.keys(scores);
+
+                if (submittedPlayers.length > 0 && submittedPlayers.length < players.length) {
+                    console.log(`Finalizing scores for ${yesterdayString}...`);
+                    let maxMins = 0;
+                    let maxSecs = 0;
+                    let maxTotalSeconds = 0;
+
+                    // Find the maximum time among submitted players
+                    for (const playerName of submittedPlayers) {
+                        const totalSeconds = (scores[playerName].mins * 60) + scores[playerName].secs;
+                        if (totalSeconds > maxTotalSeconds) {
+                            maxTotalSeconds = totalSeconds;
+                            maxMins = scores[playerName].mins;
+                            maxSecs = scores[playerName].secs;
+                        }
+                    }
+
+                    const penaltyTime = { mins: maxMins, secs: maxSecs };
+                    const updates = {};
+                    
+                    // Assign penalty to players who didn't play
+                    players.forEach(player => {
+                        if (!scores[player.name]) {
+                            updates[`scores.${player.name}`] = penaltyTime;
+                        }
+                    });
+
+                    updates.isFinalized = true;
+
+                    // Update the document in Firestore
+                    await setDoc(docRef, updates, { merge: true });
+                    console.log(`Applied penalties for ${yesterdayString}.`);
+                    
+                    // Recalculate winner after applying penalties
+                    const finalDoc = await getDoc(docRef);
+                    if (finalDoc.exists()) {
+                         await calculateAndSetWinner(yesterdayString, finalDoc.data().scores);
+                    }
+
+                } else if (submittedPlayers.length === players.length) {
+                    // All players submitted, just mark as finalized and set winner
+                     console.log(`All players submitted for ${yesterdayString}. Finalizing.`);
+                     await setDoc(docRef, { isFinalized: true }, { merge: true });
+                     await calculateAndSetWinner(yesterdayString, data.scores);
+                }
             }
         }
         
@@ -954,8 +1017,12 @@
 
         // --- INITIALIZATION ---
         signInAnonymously(auth)
-            .then(() => {
+            .then(async () => {
                 console.log("Signed in anonymously.");
+                
+                // Finalize yesterday's scores before loading everything else
+                await finalizePreviousDayScores();
+
                 createPlayerInputRows();
                 
                 // Set up a real-time listener for the entire collection
@@ -963,6 +1030,29 @@
                     console.log("Detected a change in scores, reprocessing all data.");
                     processAllScores(querySnapshot.docs);
                 });
+
+                // Set up a timer to lock UI at 11:50 PM
+                const dailyLockInterval = setInterval(() => {
+                    const now = new Date();
+                    if (now.getHours() >= 23 && now.getMinutes() >= 50) {
+                        console.log("It's past 11:50 PM. Locking inputs for today.");
+                        players.forEach(player => {
+                            const minsInput = document.getElementById(`mins-${player.name}`);
+                            const secsInput = document.getElementById(`secs-${player.name}`);
+                            const btn = document.getElementById(`btn-${player.name}`);
+                            const statusEl = document.getElementById(`status-${player.name}`);
+
+                            if (!minsInput.disabled) { // Only update if not already locked
+                                minsInput.disabled = true;
+                                secsInput.disabled = true;
+                                btn.disabled = true;
+                                statusEl.textContent = 'Day Over';
+                                statusEl.className = 'text-sm text-gray-400';
+                            }
+                        });
+                        clearInterval(dailyLockInterval); // Stop checking for today
+                    }
+                }, 30000); // Check every 30 seconds
 
                 loadingDiv.style.display = 'none';
                 appContentDiv.classList.remove('hidden');
